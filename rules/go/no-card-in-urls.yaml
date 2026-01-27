@@ -1,3 +1,6 @@
+# Go-specific rule for detecting card data in URLs
+language: go
+
 id: pci-003
 name: no-card-in-urls
 severity: high

@@ -24,15 +24,16 @@ type Parser interface {
 
 // Rule represents a PCI rule to check.
 type Rule struct {
-	ID          string            `yaml:"id"`          // e.g., "pci-001"
-	Name        string            `yaml:"name"`        // e.g., "no-card-in-logs"
-	Severity    string            `yaml:"severity"`    // "high", "medium", "low"
-	Description string            `yaml:"description"` // Full description
-	Message     string            `yaml:"message"`     // Short message for violations
-	Patterns    []Pattern         `yaml:"patterns"`    // Pattern matching config
-	Suggestion  string            `yaml:"suggestion"`  // How to fix
-	References  []string          `yaml:"references"`  // PCI-DSS references
-	Enabled     bool              `yaml:"-"`           // Whether rule is enabled (runtime)
+	ID          string    `yaml:"id"`          // e.g., "pci-001"
+	Name        string    `yaml:"name"`        // e.g., "no-card-in-logs"
+	Language    string    `yaml:"language"`    // Target language (e.g., "go", "python")
+	Severity    string    `yaml:"severity"`    // "high", "medium", "low"
+	Description string    `yaml:"description"` // Full description
+	Message     string    `yaml:"message"`     // Short message for violations
+	Patterns    []Pattern `yaml:"patterns"`    // Pattern matching config
+	Suggestion  string    `yaml:"suggestion"`  // How to fix
+	References  []string  `yaml:"references"`  // PCI-DSS references
+	Enabled     bool      `yaml:"-"`           // Whether rule is enabled (runtime)
 }
 
 // Pattern defines a pattern to match in code.

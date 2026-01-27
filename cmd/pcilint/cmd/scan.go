@@ -170,12 +170,13 @@ func runScan(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// getBuiltInRules returns the built-in PCI rules.
+// getBuiltInRules returns the built-in PCI rules for Go.
 func getBuiltInRules() []parser.Rule {
 	return []parser.Rule{
 		{
 			ID:          "pci-001",
 			Name:        "no-card-in-logs",
+			Language:    "go",
 			Severity:    "high",
 			Description: "Detects potential credit card numbers in logging statements",
 			Message:     "Potential credit card number detected in log statement. Card data must not be logged per PCI-DSS requirement 3.4.",
@@ -185,6 +186,7 @@ func getBuiltInRules() []parser.Rule {
 		{
 			ID:          "pci-002",
 			Name:        "no-cvv-storage",
+			Language:    "go",
 			Severity:    "high",
 			Description: "Detects CVV/CVC codes stored in variables or databases",
 			Message:     "CVV/CVC code appears to be stored. CVV must never be stored per PCI-DSS requirement 3.2.",
@@ -194,6 +196,7 @@ func getBuiltInRules() []parser.Rule {
 		{
 			ID:          "pci-003",
 			Name:        "no-card-in-urls",
+			Language:    "go",
 			Severity:    "high",
 			Description: "Detects card data in URL parameters or query strings",
 			Message:     "Card data detected in URL parameters. Card data in URLs can be logged by servers and proxies.",
@@ -203,6 +206,7 @@ func getBuiltInRules() []parser.Rule {
 		{
 			ID:          "pci-004",
 			Name:        "no-plaintext-card-storage",
+			Language:    "go",
 			Severity:    "high",
 			Description: "Detects unencrypted card data in files or databases",
 			Message:     "Plaintext card data detected in storage operation. Card data must be encrypted at rest.",
@@ -212,6 +216,7 @@ func getBuiltInRules() []parser.Rule {
 		{
 			ID:          "pci-005",
 			Name:        "no-card-in-errors",
+			Language:    "go",
 			Severity:    "high",
 			Description: "Detects card numbers in error messages",
 			Message:     "Potential card data in error message. Error messages may be logged or displayed to users.",

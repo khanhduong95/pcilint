@@ -151,7 +151,36 @@ func (l *Loader) LoadByID(id string) (parser.Rule, error) {
 	return parser.Rule{}, fmt.Errorf("rule not found: %s", id)
 }
 
-// FilterRules filters rules by enabled/disabled lists and severity.
+// LoadForLanguage loads rules for a specific language.
+func (l *Loader) LoadForLanguage(language string) ([]parser.Rule, error) {
+	allRules, err := l.LoadAll()
+	if err != nil {
+		return nil, err
+	}
+
+	return FilterByLanguage(allRules, language), nil
+}
+
+// FilterByLanguage returns rules that apply to the given language.
+// Rules with empty language field are considered universal and always included.
+func FilterByLanguage(rules []parser.Rule, language string) []parser.Rule {
+	if language == "" {
+		return rules
+	}
+
+	language = strings.ToLower(language)
+	var filtered []parser.Rule
+	for _, rule := range rules {
+		ruleLang := strings.ToLower(rule.Language)
+		// Include if: rule has no language (universal) OR matches the target language
+		if ruleLang == "" || ruleLang == language {
+			filtered = append(filtered, rule)
+		}
+	}
+	return filtered
+}
+
+// FilterRules filters rules by enabled/disabled lists, severity, and optionally language.
 func FilterRules(rules []parser.Rule, enabled, disabled []string, minSeverity string) []parser.Rule {
 	enabledSet := make(map[string]bool)
 	disabledSet := make(map[string]bool)

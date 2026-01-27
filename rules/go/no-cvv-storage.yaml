@@ -1,3 +1,6 @@
+# Go-specific rule for detecting CVV storage
+language: go
+
 id: pci-002
 name: no-cvv-storage
 severity: high

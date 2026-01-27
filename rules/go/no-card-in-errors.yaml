@@ -1,3 +1,6 @@
+# Go-specific rule for detecting card numbers in error messages
+language: go
+
 id: pci-005
 name: no-card-in-errors
 severity: high

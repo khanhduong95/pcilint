@@ -1,3 +1,6 @@
+# Go-specific rule for detecting card numbers in log statements
+language: go
+
 id: pci-001
 name: no-card-in-logs
 severity: high
@@ -6,6 +9,7 @@ message: "Potential credit card number detected in log statement. Card data must
 
 patterns:
   - type: function_call
+    # Standard library logging
     functions:
       - log.Printf
       - log.Println
@@ -14,9 +18,11 @@ patterns:
       - log.Fatalln
       - log.Panicf
       - log.Panicln
+      # fmt package (often used for logging)
       - fmt.Printf
       - fmt.Println
       - fmt.Print
+      # Common logging libraries (logrus, zap, zerolog patterns)
       - logger.Info
       - logger.Infof
       - logger.Debug
@@ -25,6 +31,8 @@ patterns:
       - logger.Errorf
       - logger.Warn
       - logger.Warnf
+      - logger.WithField
+      - logger.WithFields
     argument_patterns:
       - regex: '\b\d{13,19}\b'
       - contains_words:

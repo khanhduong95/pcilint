@@ -1,3 +1,6 @@
+# Go-specific rule for detecting plaintext card storage
+language: go
+
 id: pci-004
 name: no-plaintext-card-storage
 severity: high
