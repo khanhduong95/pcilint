@@ -169,19 +169,7 @@ func (p *Parser) checkNoCardInLogs(fset *token.FileSet, file *ast.File, content 
 		// Check arguments for card patterns
 		for _, arg := range call.Args {
 			if p.containsCardReference(arg) {
-				pos := fset.Position(call.Pos())
-				violations = append(violations, violation.Violation{
-					RuleID:     rule.ID,
-					RuleName:   rule.Name,
-					Severity:   rule.Severity,
-					Message:    rule.Message,
-					File:       filepath,
-					Line:       pos.Line,
-					Column:     pos.Column,
-					Code:       p.getCodeSnippet(content, pos.Line),
-					Suggestion: rule.Suggestion,
-					Timestamp:  time.Now(),
-				})
+				violations = append(violations, p.createViolation(fset, call.Pos(), content, rule, filepath))
 				break // One violation per log statement
 			}
 		}
@@ -203,19 +191,7 @@ func (p *Parser) checkNoCVVStorage(fset *token.FileSet, file *ast.File, content 
 			for _, lhs := range node.Lhs {
 				if ident, ok := lhs.(*ast.Ident); ok {
 					if p.isCVVVariableName(ident.Name) {
-						pos := fset.Position(node.Pos())
-						violations = append(violations, violation.Violation{
-							RuleID:     rule.ID,
-							RuleName:   rule.Name,
-							Severity:   rule.Severity,
-							Message:    rule.Message,
-							File:       filepath,
-							Line:       pos.Line,
-							Column:     pos.Column,
-							Code:       p.getCodeSnippet(content, pos.Line),
-							Suggestion: rule.Suggestion,
-							Timestamp:  time.Now(),
-						})
+						violations = append(violations, p.createViolation(fset, node.Pos(), content, rule, filepath))
 					}
 				}
 			}
@@ -224,38 +200,14 @@ func (p *Parser) checkNoCVVStorage(fset *token.FileSet, file *ast.File, content 
 			// Check for CVV fields in structs
 			for _, name := range node.Names {
 				if p.isCVVVariableName(name.Name) {
-					pos := fset.Position(node.Pos())
-					violations = append(violations, violation.Violation{
-						RuleID:     rule.ID,
-						RuleName:   rule.Name,
-						Severity:   rule.Severity,
-						Message:    rule.Message,
-						File:       filepath,
-						Line:       pos.Line,
-						Column:     pos.Column,
-						Code:       p.getCodeSnippet(content, pos.Line),
-						Suggestion: rule.Suggestion,
-						Timestamp:  time.Now(),
-					})
+					violations = append(violations, p.createViolation(fset, node.Pos(), content, rule, filepath))
 				}
 			}
 
 		case *ast.CallExpr:
 			// Check for CVV in database operations
 			if p.isDatabaseCall(node) && p.containsCVVReference(node) {
-				pos := fset.Position(node.Pos())
-				violations = append(violations, violation.Violation{
-					RuleID:     rule.ID,
-					RuleName:   rule.Name,
-					Severity:   rule.Severity,
-					Message:    rule.Message,
-					File:       filepath,
-					Line:       pos.Line,
-					Column:     pos.Column,
-					Code:       p.getCodeSnippet(content, pos.Line),
-					Suggestion: rule.Suggestion,
-					Timestamp:  time.Now(),
-				})
+				violations = append(violations, p.createViolation(fset, node.Pos(), content, rule, filepath))
 			}
 		}
 
@@ -277,36 +229,12 @@ func (p *Parser) checkNoCardInURLs(fset *token.FileSet, file *ast.File, content 
 
 		// Check for URL building functions
 		if p.isURLBuildingFunction(call) && p.containsCardReference(call) {
-			pos := fset.Position(call.Pos())
-			violations = append(violations, violation.Violation{
-				RuleID:     rule.ID,
-				RuleName:   rule.Name,
-				Severity:   rule.Severity,
-				Message:    rule.Message,
-				File:       filepath,
-				Line:       pos.Line,
-				Column:     pos.Column,
-				Code:       p.getCodeSnippet(content, pos.Line),
-				Suggestion: rule.Suggestion,
-				Timestamp:  time.Now(),
-			})
+			violations = append(violations, p.createViolation(fset, call.Pos(), content, rule, filepath))
 		}
 
 		// Check for string concatenation with URLs
 		if p.isStringConcatWithURL(call) && p.containsCardReference(call) {
-			pos := fset.Position(call.Pos())
-			violations = append(violations, violation.Violation{
-				RuleID:     rule.ID,
-				RuleName:   rule.Name,
-				Severity:   rule.Severity,
-				Message:    rule.Message,
-				File:       filepath,
-				Line:       pos.Line,
-				Column:     pos.Column,
-				Code:       p.getCodeSnippet(content, pos.Line),
-				Suggestion: rule.Suggestion,
-				Timestamp:  time.Now(),
-			})
+			violations = append(violations, p.createViolation(fset, call.Pos(), content, rule, filepath))
 		}
 
 		return true
@@ -327,36 +255,12 @@ func (p *Parser) checkNoPlaintextCardStorage(fset *token.FileSet, file *ast.File
 
 		// Check for file write operations with card data
 		if p.isFileWriteFunction(call) && p.containsCardReference(call) {
-			pos := fset.Position(call.Pos())
-			violations = append(violations, violation.Violation{
-				RuleID:     rule.ID,
-				RuleName:   rule.Name,
-				Severity:   rule.Severity,
-				Message:    rule.Message,
-				File:       filepath,
-				Line:       pos.Line,
-				Column:     pos.Column,
-				Code:       p.getCodeSnippet(content, pos.Line),
-				Suggestion: rule.Suggestion,
-				Timestamp:  time.Now(),
-			})
+			violations = append(violations, p.createViolation(fset, call.Pos(), content, rule, filepath))
 		}
 
 		// Check for database inserts with card data (without encryption)
 		if p.isDatabaseInsert(call) && p.containsCardReference(call) && !p.hasEncryptionCall(call) {
-			pos := fset.Position(call.Pos())
-			violations = append(violations, violation.Violation{
-				RuleID:     rule.ID,
-				RuleName:   rule.Name,
-				Severity:   rule.Severity,
-				Message:    rule.Message,
-				File:       filepath,
-				Line:       pos.Line,
-				Column:     pos.Column,
-				Code:       p.getCodeSnippet(content, pos.Line),
-				Suggestion: rule.Suggestion,
-				Timestamp:  time.Now(),
-			})
+			violations = append(violations, p.createViolation(fset, call.Pos(), content, rule, filepath))
 		}
 
 		return true
@@ -377,19 +281,7 @@ func (p *Parser) checkNoCardInErrors(fset *token.FileSet, file *ast.File, conten
 
 		// Check for error creation functions
 		if p.isErrorFunction(call) && p.containsCardReference(call) {
-			pos := fset.Position(call.Pos())
-			violations = append(violations, violation.Violation{
-				RuleID:     rule.ID,
-				RuleName:   rule.Name,
-				Severity:   rule.Severity,
-				Message:    rule.Message,
-				File:       filepath,
-				Line:       pos.Line,
-				Column:     pos.Column,
-				Code:       p.getCodeSnippet(content, pos.Line),
-				Suggestion: rule.Suggestion,
-				Timestamp:  time.Now(),
-			})
+			violations = append(violations, p.createViolation(fset, call.Pos(), content, rule, filepath))
 		}
 
 		return true
@@ -614,6 +506,7 @@ var safeCardPrefixes = []string{
 
 // isCardVariableName checks if a name indicates card data.
 // Returns false if the name suggests the data is already masked/sanitized.
+// Uses word boundary matching to avoid false positives like "discard".
 func (p *Parser) isCardVariableName(name string) bool {
 	lower := strings.ToLower(name)
 
@@ -628,11 +521,66 @@ func (p *Parser) isCardVariableName(name string) bool {
 		}
 	}
 
+	// Use word boundary matching to avoid false positives
 	for _, cardName := range cardVariableNames {
-		if strings.Contains(lower, cardName) {
+		if matchesWordBoundary(name, cardName) {
 			return true
 		}
 	}
+	return false
+}
+
+// matchesWordBoundary checks if pattern appears in name at a word boundary.
+// Word boundaries are: start/end of string, underscore, or camelCase transition.
+func matchesWordBoundary(name, pattern string) bool {
+	lower := strings.ToLower(name)
+	patternLower := strings.ToLower(pattern)
+
+	// Exact match
+	if lower == patternLower {
+		return true
+	}
+
+	// Find all occurrences and check boundaries
+	idx := 0
+	for {
+		pos := strings.Index(lower[idx:], patternLower)
+		if pos == -1 {
+			break
+		}
+		pos += idx // Adjust for offset
+
+		// Check left boundary
+		leftOK := false
+		if pos == 0 {
+			leftOK = true // Start of string
+		} else if lower[pos-1] == '_' {
+			leftOK = true // Underscore boundary
+		} else if name[pos] >= 'A' && name[pos] <= 'Z' {
+			leftOK = true // CamelCase: pattern starts with uppercase
+		}
+
+		// Check right boundary
+		rightPos := pos + len(patternLower)
+		rightOK := false
+		if rightPos == len(name) {
+			rightOK = true // End of string
+		} else if lower[rightPos] == '_' {
+			rightOK = true // Underscore boundary
+		} else if name[rightPos] >= 'A' && name[rightPos] <= 'Z' {
+			rightOK = true // CamelCase: next char is uppercase
+		}
+
+		if leftOK && rightOK {
+			return true
+		}
+
+		idx = pos + 1
+		if idx >= len(lower) {
+			break
+		}
+	}
+
 	return false
 }
 
@@ -645,6 +593,24 @@ func (p *Parser) isCVVVariableName(name string) bool {
 		}
 	}
 	return false
+}
+
+// createViolation creates a violation with consistent formatting.
+func (p *Parser) createViolation(fset *token.FileSet, pos token.Pos, content []byte,
+	rule parser.Rule, filepath string) violation.Violation {
+	position := fset.Position(pos)
+	return violation.Violation{
+		RuleID:     rule.ID,
+		RuleName:   rule.Name,
+		Severity:   rule.Severity,
+		Message:    rule.Message,
+		File:       filepath,
+		Line:       position.Line,
+		Column:     position.Column,
+		Code:       p.getCodeSnippet(content, position.Line),
+		Suggestion: rule.Suggestion,
+		Timestamp:  time.Now(),
+	}
 }
 
 // getCodeSnippet extracts a code snippet from the content.

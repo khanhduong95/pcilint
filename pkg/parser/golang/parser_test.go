@@ -411,3 +411,122 @@ func processPayment(card, cvv string) error {
 		}
 	}
 }
+
+func TestParser_FalsePositivePrevention(t *testing.T) {
+	tests := []struct {
+		name           string
+		code           string
+		wantViolations int
+	}{
+		{
+			name: "discard should not trigger (false positive prevention)",
+			code: `package main
+
+import "log"
+
+func main() {
+	discard := "some value"
+	log.Printf("Discard: %s", discard)
+}`,
+			wantViolations: 0,
+		},
+		{
+			name: "wildcard should not trigger",
+			code: `package main
+
+import "log"
+
+func main() {
+	wildcard := "*"
+	log.Printf("Pattern: %s", wildcard)
+}`,
+			wantViolations: 0,
+		},
+		{
+			name: "flashcard should not trigger",
+			code: `package main
+
+import "log"
+
+type Flashcard struct {
+	Question string
+	Answer   string
+}
+
+func main() {
+	flashcard := Flashcard{Question: "Q", Answer: "A"}
+	log.Printf("Flashcard: %v", flashcard)
+}`,
+			wantViolations: 0,
+		},
+		{
+			name: "postcard should not trigger",
+			code: `package main
+
+import "log"
+
+func sendPostcard(postcard string) {
+	log.Printf("Sending postcard: %s", postcard)
+}`,
+			wantViolations: 0,
+		},
+		{
+			name: "cardNumber (camelCase) should trigger",
+			code: `package main
+
+import "log"
+
+func process(cardNumber string) {
+	log.Printf("Processing: %s", cardNumber)
+}`,
+			wantViolations: 1,
+		},
+		{
+			name: "card_number (snake_case) should trigger",
+			code: `package main
+
+import "log"
+
+func process(card_number string) {
+	log.Printf("Processing: %s", card_number)
+}`,
+			wantViolations: 1,
+		},
+		{
+			name: "userCard should trigger",
+			code: `package main
+
+import "log"
+
+func process(userCard string) {
+	log.Printf("Processing: %s", userCard)
+}`,
+			wantViolations: 1,
+		},
+	}
+
+	p := NewParser()
+	rule := parser.Rule{
+		ID:         "pci-001",
+		Name:       "no-card-in-logs",
+		Severity:   "high",
+		Message:    "Card data in logs",
+		Suggestion: "Mask card data before logging",
+		Enabled:    true,
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			violations, err := p.Parse(context.Background(), "test.go", []byte(tt.code), []parser.Rule{rule})
+			if err != nil {
+				t.Fatalf("Parse() error = %v", err)
+			}
+			if len(violations) != tt.wantViolations {
+				t.Errorf("Parse() got %d violations, want %d", len(violations), tt.wantViolations)
+				for _, v := range violations {
+					t.Logf("  Violation: %s at line %d: %s", v.RuleName, v.Line, v.Code)
+				}
+			}
+		})
+	}
+}
