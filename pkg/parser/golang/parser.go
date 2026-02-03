@@ -33,37 +33,37 @@ var cvvVariableNames = []string{
 
 // logFunctions contains common logging function signatures.
 var logFunctions = map[string]bool{
-	"Printf":    true,
-	"Println":   true,
-	"Print":     true,
-	"Sprintf":   true,
-	"Errorf":    true,
-	"Fatalf":    true,
-	"Panicf":    true,
-	"Info":      true,
-	"Infof":     true,
-	"Debug":     true,
-	"Debugf":    true,
-	"Warn":      true,
-	"Warnf":     true,
-	"Warning":   true,
-	"Warningf":  true,
-	"Error":     true,
-	"Errorln":   true,
-	"Fatal":     true,
-	"Fatalln":   true,
-	"Panic":     true,
-	"Panicln":   true,
-	"Log":       true,
-	"Logf":      true,
-	"WithField": true,
+	"Printf":     true,
+	"Println":    true,
+	"Print":      true,
+	"Fatalf":     true,
+	"Fatalln":    true,
+	"Fatal":      true,
+	"Panicf":     true,
+	"Panicln":    true,
+	"Panic":      true,
+	"Info":       true,
+	"Infof":      true,
+	"Debug":      true,
+	"Debugf":     true,
+	"Warn":       true,
+	"Warnf":      true,
+	"Warning":    true,
+	"Warningf":   true,
+	"Error":      true,
+	"Errorf":     true,
+	"Errorln":    true,
+	"Log":        true,
+	"Logf":       true,
+	"WithField":  true,
 	"WithFields": true,
 }
 
 // logPackages contains common logging package names.
+// Note: "fmt" is not here because fmt.Sprintf is not logging.
+// fmt.Printf/Println are handled specially in isLogFunction.
 var logPackages = map[string]bool{
 	"log":     true,
-	"fmt":     true,
 	"logger":  true,
 	"logging": true,
 	"logrus":  true,
@@ -71,6 +71,13 @@ var logPackages = map[string]bool{
 	"zerolog": true,
 	"glog":    true,
 	"klog":    true,
+}
+
+// fmtOutputFunctions are fmt functions that produce output (not Sprintf/Errorf which return strings).
+var fmtOutputFunctions = map[string]bool{
+	"Printf":  true,
+	"Println": true,
+	"Print":   true,
 }
 
 // Parser implements the Go language parser.
@@ -294,20 +301,32 @@ func (p *Parser) checkNoCardInErrors(fset *token.FileSet, file *ast.File, conten
 func (p *Parser) isLogFunction(call *ast.CallExpr) bool {
 	switch fun := call.Fun.(type) {
 	case *ast.SelectorExpr:
-		// Check for package.Function (e.g., log.Printf)
 		if ident, ok := fun.X.(*ast.Ident); ok {
-			pkgName := strings.ToLower(ident.Name)
-			if logPackages[pkgName] && logFunctions[fun.Sel.Name] {
+			pkgName := ident.Name
+
+			// Known log packages: any log function is a match
+			if logPackages[strings.ToLower(pkgName)] && logFunctions[fun.Sel.Name] {
 				return true
 			}
+
+			// fmt package: only output functions (Printf, Println, Print),
+			// not Sprintf/Errorf which return strings.
+			if pkgName == "fmt" {
+				return fmtOutputFunctions[fun.Sel.Name]
+			}
+
+			// errors package: not logging
+			if pkgName == "errors" || pkgName == "xerrors" || pkgName == "perrors" {
+				return false
+			}
 		}
-		// Check for method calls (e.g., logger.Info)
-		if logFunctions[fun.Sel.Name] {
-			return true
-		}
-	case *ast.Ident:
-		// Direct function call
-		if logFunctions[fun.Name] {
+
+		// Method calls on unknown receivers (e.g., logger.Info, l.Debug)
+		funcName := fun.Sel.Name
+		if funcName == "Info" || funcName == "Infof" || funcName == "Infow" ||
+			funcName == "Debug" || funcName == "Debugf" || funcName == "Debugw" ||
+			funcName == "Warn" || funcName == "Warnf" || funcName == "Warnw" ||
+			funcName == "Error" || funcName == "Errorf" || funcName == "Errorw" {
 			return true
 		}
 	}
@@ -319,11 +338,11 @@ func (p *Parser) isErrorFunction(call *ast.CallExpr) bool {
 	switch fun := call.Fun.(type) {
 	case *ast.SelectorExpr:
 		funcName := fun.Sel.Name
-		// Check for errors.New, fmt.Errorf, etc.
+		// Check for errors.New, fmt.Errorf, github.com/pkg/errors, etc.
 		if funcName == "New" || funcName == "Errorf" || funcName == "Wrapf" || funcName == "Wrap" {
 			if ident, ok := fun.X.(*ast.Ident); ok {
 				pkgName := ident.Name
-				if pkgName == "errors" || pkgName == "fmt" || pkgName == "xerrors" || pkgName == "pkg" {
+				if pkgName == "errors" || pkgName == "fmt" || pkgName == "xerrors" || pkgName == "perrors" {
 					return true
 				}
 			}
@@ -345,16 +364,17 @@ func (p *Parser) isURLBuildingFunction(call *ast.CallExpr) bool {
 	return false
 }
 
+// urlPattern matches strings that look like URL construction with query parameters.
+var urlPattern = regexp.MustCompile(`https?://|/[a-z]+\?[a-z_]+=`)
+
 // isStringConcatWithURL checks for URL string concatenation.
 func (p *Parser) isStringConcatWithURL(call *ast.CallExpr) bool {
 	// Check for fmt.Sprintf with URL patterns
 	if sel, ok := call.Fun.(*ast.SelectorExpr); ok {
-		if sel.Sel.Name == "Sprintf" || sel.Sel.Name == "Printf" {
+		if sel.Sel.Name == "Sprintf" {
 			for _, arg := range call.Args {
 				if lit, ok := arg.(*ast.BasicLit); ok && lit.Kind == token.STRING {
-					val := strings.ToLower(lit.Value)
-					if strings.Contains(val, "http") || strings.Contains(val, "url") ||
-						strings.Contains(val, "?") || strings.Contains(val, "&") {
+					if urlPattern.MatchString(lit.Value) {
 						return true
 					}
 				}
@@ -585,10 +605,22 @@ func matchesWordBoundary(name, pattern string) bool {
 }
 
 // isCVVVariableName checks if a name indicates CVV data.
+// Uses word boundary matching and safe prefix checks, consistent with isCardVariableName.
 func (p *Parser) isCVVVariableName(name string) bool {
 	lower := strings.ToLower(name)
+
+	// Check if name indicates masked/sanitized data
+	for _, prefix := range safeCardPrefixes {
+		if strings.HasPrefix(lower, prefix) {
+			return false
+		}
+		if strings.Contains(lower, prefix+"_") || strings.Contains(lower, "_"+prefix) {
+			return false
+		}
+	}
+
 	for _, cvvName := range cvvVariableNames {
-		if strings.Contains(lower, cvvName) {
+		if matchesWordBoundary(name, cvvName) {
 			return true
 		}
 	}

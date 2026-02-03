@@ -89,16 +89,16 @@ func (s *Scanner) Scan(ctx context.Context) (*violation.Report, error) {
 
 		content, err := os.ReadFile(path)
 		if err != nil {
-			// Log warning but continue
+			fmt.Fprintf(os.Stderr, "Warning: failed to read %s: %v\n", path, err)
 			continue
 		}
 
+		report.Summary.FilesScanned++
 		jobs <- fileJob{
 			path:    path,
 			content: content,
 			parser:  p,
 		}
-		report.Summary.FilesScanned++
 	}
 	close(jobs)
 
@@ -232,10 +232,10 @@ func (s *Scanner) shouldExclude(path string) bool {
 
 // matchPattern matches a gitignore-style pattern against a path.
 func matchPattern(pattern, path string) (bool, error) {
-	// Handle ** patterns
+	// Handle ** (globstar) patterns by checking if any path suffix matches
+	// the non-globstar portion. E.g., "vendor/**" matches anything under vendor/.
 	if strings.Contains(pattern, "**") {
-		// Convert to regex-like matching
-		pattern = strings.ReplaceAll(pattern, "**", "*")
+		return matchGlobstar(pattern, path), nil
 	}
 
 	// Try matching against the full path
@@ -256,10 +256,10 @@ func matchPattern(pattern, path string) (bool, error) {
 		return true, nil
 	}
 
-	// Try matching against path components
-	parts := strings.Split(path, string(filepath.Separator))
+	// Try matching against path suffixes (for patterns like "vendor/*")
+	parts := strings.Split(filepath.ToSlash(path), "/")
 	for i := range parts {
-		subpath := filepath.Join(parts[i:]...)
+		subpath := strings.Join(parts[i:], string(filepath.Separator))
 		matched, err = filepath.Match(pattern, subpath)
 		if err != nil {
 			continue
@@ -270,4 +270,76 @@ func matchPattern(pattern, path string) (bool, error) {
 	}
 
 	return false, nil
+}
+
+// matchGlobstar handles ** patterns by splitting on ** and checking if the
+// path contains a directory that matches the prefix and a file that matches the suffix.
+func matchGlobstar(pattern, path string) bool {
+	slashPath := filepath.ToSlash(path)
+	slashPattern := filepath.ToSlash(pattern)
+
+	// Split pattern on "**"
+	parts := strings.SplitN(slashPattern, "**", 2)
+	prefix := parts[0] // e.g., "vendor/"
+	suffix := ""
+	if len(parts) > 1 {
+		suffix = parts[1] // e.g., "/*.go"
+	}
+
+	// Remove trailing/leading slashes for cleaner matching
+	prefix = strings.TrimSuffix(prefix, "/")
+	suffix = strings.TrimPrefix(suffix, "/")
+
+	// Check all path components
+	pathParts := strings.Split(slashPath, "/")
+	for i := range pathParts {
+		subpath := strings.Join(pathParts[:i+1], "/")
+
+		// Check if this directory matches the prefix
+		prefixMatch := false
+		if prefix == "" {
+			prefixMatch = true // "**/*.go" matches any directory
+		} else {
+			matched, err := filepath.Match(prefix, subpath)
+			if err == nil && matched {
+				prefixMatch = true
+			}
+			// Also check just the directory name
+			if !prefixMatch {
+				for _, part := range pathParts[:i+1] {
+					matched, err := filepath.Match(prefix, part)
+					if err == nil && matched {
+						prefixMatch = true
+						break
+					}
+				}
+			}
+		}
+
+		if !prefixMatch {
+			continue
+		}
+
+		// If no suffix, any file under the matching prefix is a match
+		if suffix == "" {
+			return true
+		}
+
+		// Check remaining path against suffix
+		remaining := strings.Join(pathParts[i+1:], "/")
+		if remaining == "" {
+			continue
+		}
+		matched, err := filepath.Match(suffix, remaining)
+		if err == nil && matched {
+			return true
+		}
+		// Also match against just the filename
+		matched, err = filepath.Match(suffix, pathParts[len(pathParts)-1])
+		if err == nil && matched {
+			return true
+		}
+	}
+
+	return false
 }

@@ -91,17 +91,19 @@ func runScan(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Override with command-line flags
+	// Override with command-line flags (only set values that were explicitly provided)
 	flagCfg := &config.Config{
 		Paths:       args,
 		Exclude:     exclude,
 		Language:    language,
-		Format:      format,
 		Concurrency: concurrency,
 		RulesDir:    rulesDir,
 		Severity:    severity,
 		FailOnAny:   failOnAny,
 		Quiet:       quiet,
+	}
+	if cmd.Flags().Changed("format") {
+		flagCfg.Format = format
 	}
 	cfg.Merge(flagCfg)
 

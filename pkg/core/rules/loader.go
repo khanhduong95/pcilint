@@ -2,7 +2,6 @@
 package rules
 
 import (
-	"embed"
 	"fmt"
 	"io/fs"
 	"os"
@@ -15,33 +14,18 @@ import (
 
 // Loader loads rules from YAML files.
 type Loader struct {
-	rulesDir    string
-	embeddedFS  embed.FS
-	useEmbedded bool
+	rulesDir string
 }
 
-// NewLoader creates a new rule loader.
-// If rulesDir is empty, it will use embedded rules.
+// NewLoader creates a new rule loader that reads from the given directory.
 func NewLoader(rulesDir string) *Loader {
 	return &Loader{
-		rulesDir:    rulesDir,
-		useEmbedded: rulesDir == "",
-	}
-}
-
-// NewLoaderWithEmbedded creates a loader that uses embedded rules.
-func NewLoaderWithEmbedded(efs embed.FS) *Loader {
-	return &Loader{
-		embeddedFS:  efs,
-		useEmbedded: true,
+		rulesDir: rulesDir,
 	}
 }
 
 // LoadAll loads all rules from the rules directory.
 func (l *Loader) LoadAll() ([]parser.Rule, error) {
-	if l.useEmbedded && l.rulesDir == "" {
-		return l.loadEmbedded()
-	}
 	return l.loadFromDir(l.rulesDir)
 }
 
@@ -75,46 +59,6 @@ func (l *Loader) loadFromDir(dir string) ([]parser.Rule, error) {
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to walk rules directory: %w", err)
-	}
-
-	return rules, nil
-}
-
-// loadEmbedded loads rules from embedded filesystem.
-func (l *Loader) loadEmbedded() ([]parser.Rule, error) {
-	var rules []parser.Rule
-
-	err := fs.WalkDir(l.embeddedFS, ".", func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if d.IsDir() {
-			return nil
-		}
-
-		ext := strings.ToLower(filepath.Ext(path))
-		if ext != ".yaml" && ext != ".yml" {
-			return nil
-		}
-
-		data, err := l.embeddedFS.ReadFile(path)
-		if err != nil {
-			return fmt.Errorf("failed to read embedded rule %s: %w", path, err)
-		}
-
-		var rule parser.Rule
-		if err := yaml.Unmarshal(data, &rule); err != nil {
-			return fmt.Errorf("failed to parse rule %s: %w", path, err)
-		}
-
-		rule.Enabled = true
-		rules = append(rules, rule)
-		return nil
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to walk embedded rules: %w", err)
 	}
 
 	return rules, nil
