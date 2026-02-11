@@ -1,0 +1,57 @@
+# Go-specific rule for detecting CVV storage
+language: go
+
+id: pci-002
+name: no-cvv-storage
+severity: high
+description: Detects CVV/CVC codes stored in variables or databases
+message: "CVV/CVC code appears to be stored. CVV must never be stored per PCI-DSS requirement 3.2."
+
+patterns:
+  - type: variable
+    variable_names:
+      - cvv
+      - cvc
+      - cvv2
+      - cvc2
+      - securitycode
+      - security_code
+      - securityCode
+      - cardverification
+      - card_verification
+      - verificationcode
+      - verification_code
+      - verificationCode
+
+  - type: struct_field
+    field_names:
+      - CVV
+      - CVC
+      - CVV2
+      - CVC2
+      - SecurityCode
+      - CardVerification
+      - VerificationCode
+
+  - type: function_call
+    functions:
+      - db.Exec
+      - db.Query
+      - db.QueryRow
+      - db.Insert
+      - db.Create
+      - db.Save
+    argument_patterns:
+      - contains_words:
+          - cvv
+          - cvc
+          - security_code
+          - securitycode
+          - verification
+
+suggestion: "CVV should only be used for transaction authorization and immediately discarded. Never store CVV data in any form."
+
+references:
+  - "PCI-DSS Requirement 3.2: Do not store sensitive authentication data after authorization"
+  - "PCI-DSS Requirement 3.2.2: Do not store the card verification code or value"
+  - "https://www.pcisecuritystandards.org/"

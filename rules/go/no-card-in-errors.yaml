@@ -1,0 +1,44 @@
+# Go-specific rule for detecting card numbers in error messages
+language: go
+
+id: pci-005
+name: no-card-in-errors
+severity: high
+description: Detects card numbers in error messages
+message: "Potential card data in error message. Error messages may be logged, displayed to users, or sent to external monitoring services."
+
+patterns:
+  - type: function_call
+    functions:
+      - errors.New
+      - fmt.Errorf
+      - xerrors.Errorf
+      - pkg.Errorf
+      - pkg.Wrapf
+      - errors.Wrap
+      - errors.Wrapf
+    argument_patterns:
+      - regex: '\b\d{13,19}\b'
+      - contains_words:
+          - card
+          - pan
+          - cardnumber
+          - card_number
+          - ccnumber
+          - cc_number
+          - accountnumber
+          - account_number
+
+  - type: panic
+    argument_patterns:
+      - contains_words:
+          - card
+          - pan
+          - cardnumber
+
+suggestion: "Mask or remove card data from error messages. Use generic error messages like 'Payment processing failed' and log detailed (masked) information separately if needed."
+
+references:
+  - "PCI-DSS Requirement 3.4: Render PAN unreadable anywhere it is stored"
+  - "OWASP: Error Handling"
+  - "https://www.pcisecuritystandards.org/"

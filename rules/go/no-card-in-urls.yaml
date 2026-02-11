@@ -1,0 +1,47 @@
+# Go-specific rule for detecting card data in URLs
+language: go
+
+id: pci-003
+name: no-card-in-urls
+severity: high
+description: Detects card data in URL parameters or query strings
+message: "Card data detected in URL parameters. Card data in URLs can be logged by servers, proxies, and browsers."
+
+patterns:
+  - type: function_call
+    functions:
+      - url.Values.Add
+      - url.Values.Set
+      - url.Values.Encode
+      - http.NewRequest
+      - http.Get
+      - http.Post
+      - fmt.Sprintf
+    argument_patterns:
+      - regex: '\?(card|pan|cc|cardnumber|card_number)='
+      - regex: '&(card|pan|cc|cardnumber|card_number)='
+      - contains_words:
+          - card
+          - pan
+          - cardnumber
+          - card_number
+          - ccnumber
+          - cc_number
+
+  - type: string_concat
+    string_patterns:
+      - "?card="
+      - "&card="
+      - "?pan="
+      - "&pan="
+      - "?cardnumber="
+      - "&cardnumber="
+      - "?cc="
+      - "&cc="
+
+suggestion: "Never pass card data in URLs. Use POST requests with encrypted request body for transmitting sensitive payment data."
+
+references:
+  - "PCI-DSS Requirement 4.1: Use strong cryptography to safeguard sensitive cardholder data during transmission"
+  - "OWASP: Sensitive Data Exposure"
+  - "https://www.pcisecuritystandards.org/"

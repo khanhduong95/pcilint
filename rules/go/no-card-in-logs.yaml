@@ -1,0 +1,56 @@
+# Go-specific rule for detecting card numbers in log statements
+language: go
+
+id: pci-001
+name: no-card-in-logs
+severity: high
+description: Detects potential credit card numbers in logging statements
+message: "Potential credit card number detected in log statement. Card data must not be logged per PCI-DSS requirement 3.4."
+
+patterns:
+  - type: function_call
+    # Standard library logging
+    functions:
+      - log.Printf
+      - log.Println
+      - log.Print
+      - log.Fatalf
+      - log.Fatalln
+      - log.Panicf
+      - log.Panicln
+      # fmt package (often used for logging)
+      - fmt.Printf
+      - fmt.Println
+      - fmt.Print
+      # Common logging libraries (logrus, zap, zerolog patterns)
+      - logger.Info
+      - logger.Infof
+      - logger.Debug
+      - logger.Debugf
+      - logger.Error
+      - logger.Errorf
+      - logger.Warn
+      - logger.Warnf
+      - logger.WithField
+      - logger.WithFields
+    argument_patterns:
+      - regex: '\b\d{13,19}\b'
+      - contains_words:
+          - card
+          - pan
+          - card_number
+          - cardnumber
+          - cardNumber
+          - cc_number
+          - ccNumber
+          - creditcard
+          - credit_card
+          - accountnumber
+          - account_number
+
+suggestion: "Use a masking function to redact card numbers before logging. Example: log.Printf(\"Card: %s\", maskCard(cardNumber))"
+
+references:
+  - "PCI-DSS Requirement 3.4: Render PAN unreadable anywhere it is stored"
+  - "PCI-DSS Requirement 10.5.2: Protect audit trail files from unauthorized modifications"
+  - "https://www.pcisecuritystandards.org/"

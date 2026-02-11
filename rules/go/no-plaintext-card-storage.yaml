@@ -1,0 +1,60 @@
+# Go-specific rule for detecting plaintext card storage
+language: go
+
+id: pci-004
+name: no-plaintext-card-storage
+severity: high
+description: Detects unencrypted card data in files or databases
+message: "Plaintext card data detected in storage operation. Card data must be encrypted at rest per PCI-DSS requirement 3.4."
+
+patterns:
+  - type: function_call
+    functions:
+      - os.WriteFile
+      - ioutil.WriteFile
+      - file.Write
+      - file.WriteString
+      - io.WriteString
+      - bufio.Writer.WriteString
+      - json.Marshal
+      - json.Encode
+      - xml.Marshal
+      - yaml.Marshal
+    argument_patterns:
+      - contains_words:
+          - card
+          - pan
+          - cardnumber
+          - card_number
+          - ccnumber
+          - cc_number
+          - accountnumber
+          - account_number
+          - primaryaccountnumber
+          - primary_account_number
+
+  - type: function_call
+    functions:
+      - db.Exec
+      - db.Query
+      - db.Insert
+      - db.Create
+      - db.Save
+      - db.Update
+      - gorm.Create
+      - gorm.Save
+    argument_patterns:
+      - regex: 'INSERT.*card|pan|cardnumber'
+      - regex: 'UPDATE.*card|pan|cardnumber'
+      - contains_words:
+          - card
+          - pan
+          - cardnumber
+          - card_number
+
+suggestion: "Encrypt card data using strong cryptography (AES-256) before storage. Consider using a PCI-compliant tokenization service to avoid storing card data entirely."
+
+references:
+  - "PCI-DSS Requirement 3.4: Render PAN unreadable anywhere it is stored"
+  - "PCI-DSS Requirement 3.5: Document and implement procedures to protect keys"
+  - "https://www.pcisecuritystandards.org/"
